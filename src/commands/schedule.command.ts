@@ -1,16 +1,20 @@
 import { Markup, Telegraf } from "telegraf";
 import { Command } from "./commad.class";
 import { IBotContext } from "../context/context.interface";
-import { getTodayStrignDay, shortWeekdays, weekdayGenitive } from "../constants/constants";
+import { ANILIBRIA_SCHEDULE, getTodayStrignDay, getWeekDayFromShort, shortWeekdays, weekdayGenitive } from "../constants/constants";
 import { InlineKeyboardMarkup } from "telegraf/typings/core/types/typegram";
 import path from "path";
+import { WebScrapper } from "../utils/scrapper";
+import { IAnimeWeekDescription } from "../utils/scrapper.interface";
+import { getTimeDiffString } from "../utils/date.util";
 
 export class SheduleCommand extends Command {
 
     private dayState = {
-        active: getTodayStrignDay('short')
+        active: getTodayStrignDay('short'),
+        pathAssets: path.join(process.cwd(), 'src', 'assets','schedule')
     }
-
+    
     constructor(bot: Telegraf<IBotContext>) {
       super(bot);
     }
@@ -48,36 +52,66 @@ export class SheduleCommand extends Command {
       
 
     private async showShelduer(ctx: IBotContext): Promise<void> {
+        const scrapper = new WebScrapper();
+        const scheduleDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
 
         await ctx.replyWithPhoto({ source: this.getPhotoPath()}, {
-            caption: `Календарь релизов на ${weekdayGenitive[shortWeekdays.indexOf(this.dayState.active)]} ` +
-            `(день ${shortWeekdays.indexOf(this.dayState.active) + 1} из ${shortWeekdays.length}):`,
+            caption: await this.createCaption(scheduleDay),
             parse_mode: 'Markdown',
             ...this.getKeyboard()
         })
         this.bot.action('schedule backward', async (ctx) => {
             this.setDayState(-1)
-            this.editCaption(ctx);
+            const prevDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
+            this.editCaption(ctx, prevDay);
         })
 
         this.bot.action('schedule forward', async (ctx) => {
             this.setDayState(1)
-            this.editCaption(ctx);
+            const nextDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
+            this.editCaption(ctx, nextDay);
         })
+
+        this.bot.action(/schedule (.*)/, async (ctx) => {
+            const capturedElement = ctx.match[1];
+            const matchedElement = shortWeekdays.find((element) => element.toLowerCase() === capturedElement.toLowerCase());
+            this.dayState.active = matchedElement || this.dayState.active;
+            const daySelected = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
+            this.editCaption(ctx, daySelected);
+        })
+
     }
 
-    private async editCaption(ctx: IBotContext): Promise<void> {
+    private async editCaption(ctx: IBotContext, animeSeries: IAnimeWeekDescription): Promise<void> {
         await ctx.editMessageMedia({ type: 'photo', media: { source: this.getPhotoPath() } });
-        await ctx.editMessageCaption(`Календарь релизов на ${weekdayGenitive[shortWeekdays.indexOf(this.dayState.active)]} ` +
-        `(день ${shortWeekdays.indexOf(this.dayState.active) + 1} из ${shortWeekdays.length}):`, this.getKeyboard());
+        await ctx.editMessageCaption(await this.createCaption(animeSeries), {parse_mode: 'Markdown', ...this.getKeyboard()});
     }
 
     private getPhotoPath(): string{
-        return path.join(process.cwd(), 'src', 'assets','schedule', `${shortWeekdays.indexOf(this.dayState.active) + 1}.jpg`);
+        return path.join(this.dayState.pathAssets, `${shortWeekdays.indexOf(this.dayState.active) + 1}.jpg`) ;
     }
 
     private setDayState(num: number): void {
         const nextDayIndex = shortWeekdays.indexOf(this.dayState.active) + num;
         this.dayState.active = shortWeekdays[nextDayIndex];
+    }
+
+    private async createCaption(animeSeries: IAnimeWeekDescription) : Promise<string> {
+
+        const promises = animeSeries.scheduleDay.map(async series => {
+            const scrapper = new WebScrapper();
+            const animeInfo = await scrapper.parseAnimePage(series.link);
+            return `*${series.name}*` + '\n' + `${animeInfo.detailType.type == 'ТВ' ? 'Серия' : animeInfo.detailType.type} ${series.series}` + `\` ${getTimeDiffString(animeInfo.date)}\`` + "\n\n";
+        });   
+
+        return await Promise.all(promises).then(result => {
+            const listAnime = result.join('');
+            return `Календарь релизов на ${weekdayGenitive[shortWeekdays.indexOf(this.dayState.active)]} ` +
+            `(день ${shortWeekdays.indexOf(this.dayState.active) + 1} из ${shortWeekdays.length}):` + "\n\n"
+            + listAnime
+            + '\n'
+            + '_* Расписание не гарантирует выход серии сегодня, это лишь приблизительное время когда стоит ожидать новую серию._'
+
+        })
     }
 }

@@ -1,7 +1,8 @@
 import axios, { AxiosError } from "axios";
 import * as cheerio from 'cheerio';
-import { IAnimeDescription, IAnimeWeekDescription, IScrapperServce, WEB_URL } from "./scrapper.interface";
+import { IAnimeDescription, IAnimeDetails, IAnimeType, IAnimeWeekDescription, IScrapperServce, WEB_URL } from "./scrapper.interface";
 import { ANILIBRIA_SCHEDULE, ANILIBRIA_URL, getTodayStrignDay, weekdays } from "../constants/constants";
+import { regexFind } from "./regex.util";
 
 export class WebScrapper implements IScrapperServce{
 
@@ -25,7 +26,7 @@ export class WebScrapper implements IScrapperServce{
       
     }
 
-    async getScheduleWeek(url: WEB_URL){
+    async getScheduleWeek(url: WEB_URL) : Promise<IAnimeWeekDescription[]>{
         const weekdaysGenerator = this.generateWeekdays();
         const schedules: IAnimeWeekDescription[] = [];
         const page = this.getPage(url);
@@ -40,7 +41,8 @@ export class WebScrapper implements IScrapperServce{
                 const $image = $($link).find('img');
 
                 const animeName = String($($descriptions).find('span.schedule-runame').text());
-                const animeSeries = Number($($descriptions).find('span.schedule-series').text().split(' ')[1].split('-')[1]);
+                const seriesMatch = $($descriptions).find('span.schedule-series').text().match(/\d+$/)
+                const animeSeries = seriesMatch ? parseInt(seriesMatch[0]) : 1 ;
                 const animeDescription = String($($descriptions).find('span.schedule-description').text());
                 const animeImage = String($($image).attr('src'));
                 const animeLink = String($($link).attr('href'));
@@ -63,9 +65,9 @@ export class WebScrapper implements IScrapperServce{
         return schedules;
     }
 
-    async getScheduleDay(url: WEB_URL){
+    async getScheduleDay(url: WEB_URL, weekDay?: string): Promise<IAnimeWeekDescription>{
         const schedules: IAnimeWeekDescription = {
-            day: getTodayStrignDay('long'),
+            day: weekDay || getTodayStrignDay('long'),
             scheduleDay: []
         }
         const page = this.getPage(url);
@@ -81,7 +83,8 @@ export class WebScrapper implements IScrapperServce{
             const $image = $($link).find('img');
 
             const animeName = String($($descriptions).find('span.schedule-runame').text());
-            const animeSeries = Number($($descriptions).find('span.schedule-series').text().split(' ')[1].split('-')[1]);
+            const seriesMatch = $($descriptions).find('span.schedule-series').text().match(/\d+$/)
+            const animeSeries = seriesMatch ? parseInt(seriesMatch[0]) : 1 ;
             const animeDescription = String($($descriptions).find('span.schedule-description').text());
             const animeImage = String($($image).attr('src'));
             const animeLink = String($($link).attr('href'));
@@ -100,7 +103,34 @@ export class WebScrapper implements IScrapperServce{
         return schedules;
     }
 
-    getFullLink(url: WEB_URL, animeLink: string): string{
+    async parseAnimePage(url: WEB_URL): Promise<IAnimeDetails> {
+        const page = this.getPage(url);
+        const $ = await this.loadPage(page);
+        const animeDescription = $('#xreleaseInfo').text();
+        const animeDateText = $('#publicTorrentTable').find('td').eq(2).attr('data-datetime');
+        const animeDate = animeDateText ? new Date(animeDateText) : new Date();
+        const animeType = this.findAnimeType(animeDescription);
+
+        return {
+            detailType: animeType,
+            date: animeDate
+        } satisfies IAnimeDetails;
+    }
+
+    private findAnimeType(text: string){
+        const animeRegex = regexFind(text, new RegExp(`Тип:([^\n]*)`));
+        const animeType = animeRegex.split(' ')[0];
+        const animeTime = regexFind(animeRegex, /(\d+\s*мин)/);
+        const animeCount = regexFind(animeRegex,  /(\d+\s*эп.)/)
+
+        return {
+            type: animeType.replace(',', ''),
+            count: animeCount == animeRegex ? 'no info' : animeCount ,
+            time: animeTime == animeRegex ? 'no info' : animeTime ,
+        } as IAnimeType
+    }
+
+    getFullLink(url: WEB_URL, animeLink: string): string {
         switch(url){
             case ANILIBRIA_SCHEDULE:
                 return ANILIBRIA_URL + animeLink
@@ -115,4 +145,7 @@ export class WebScrapper implements IScrapperServce{
         }
     }
     
+    test(){
+        return '123'
+    }
 }

@@ -28,7 +28,7 @@ class Bot{
     }
     
     init(){
-
+        
         this.commands = [
             new StartCommand(this.bot),
             new MenuCommand(this.bot),
