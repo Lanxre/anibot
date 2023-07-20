@@ -20,5 +20,9 @@ export const botCommands: BotCommand[] = [
     {
         command: '/add',
         description: 'Добавить тайтл в подписки',
+    },
+    {
+        command: '/history',
+        description: 'История выхода релизов',
     }
 ]

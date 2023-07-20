@@ -10,6 +10,7 @@ import LocalSession from "telegraf-session-local";
 import 'reflect-metadata';
 import { MenuCommand } from "./commands/menu.command";
 import { SheduleCommand } from "./commands/schedule.command";
+import { HistoryCommand } from "./commands/history.command";
 
 
 @Service()
@@ -32,7 +33,8 @@ class Bot{
         this.commands = [
             new StartCommand(this.bot),
             new MenuCommand(this.bot),
-            new SheduleCommand(this.bot)
+            new SheduleCommand(this.bot),
+            new HistoryCommand(this.bot)
         ]
         this.setCommands();
         this.registerCommands();
