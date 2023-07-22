@@ -1,8 +1,9 @@
 import axios, { AxiosError } from "axios";
 import * as cheerio from 'cheerio';
 import { IAnimeDescription, IAnimeDetails, IAnimeType, IAnimeWeekDescription, IScrapperServce, WEB_URL } from "./scrapper.interface";
-import { ANILIBRIA_SCHEDULE, ANILIBRIA_URL, getTodayStrignDay, weekdays } from "../constants/constants";
+import { ANILIBRIA_URL, getTodayStrignDay, weekdays } from "../constants/constants";
 import { regexFind } from "./regex.util";
+import puppeteer from "puppeteer";
 
 export class WebScrapper implements IScrapperServce{
 
@@ -49,7 +50,7 @@ export class WebScrapper implements IScrapperServce{
 
 
                 scheduleDay.push({
-                    link: this.getFullLink(url, animeLink),
+                    link: this.getFullLink(animeLink),
                     name: animeName,
                     series: isNaN(animeSeries) ? $($descriptions).find('span.schedule-series').text() : animeSeries,
                     description: animeDescription,
@@ -91,7 +92,7 @@ export class WebScrapper implements IScrapperServce{
 
 
             scheduleDay.push({
-                link: this.getFullLink(url, animeLink),
+                link: this.getFullLink(animeLink),
                 name: animeName,
                 series: isNaN(animeSeries) ? $($descriptions).find('span.schedule-series').text() : animeSeries,
                 description: animeDescription,
@@ -117,6 +118,36 @@ export class WebScrapper implements IScrapperServce{
         } satisfies IAnimeDetails;
     }
 
+    async parseCatalog(url: WEB_URL): Promise<IAnimeDescription[]>{
+ 
+        const $ = await this.parseDynamic(url);
+        const catalog: IAnimeDescription[] = [];
+
+
+        $('table.simpleCatalog a').each((_, link) => {
+            const $descriptions = $(link).find('div.anime_info_wrapper');
+            const $image = $(link).find('img');
+
+            const animeName = String($($descriptions).find('span.anime_name').text());
+            const seriesMatch = $($descriptions).find('span.anime_number').text().match(/\d+$/)
+            const animeSeries = seriesMatch ? parseInt(seriesMatch[0]) : 1 ;
+            const animeDescription = String($($descriptions).find('span.anime_description').text());
+            const animeImage = String($($image).attr('src'));
+            const animeLink = String($(link).attr('href'));
+
+            catalog.push({
+                link: this.getFullLink(animeLink),
+                name: animeName,
+                series: isNaN(animeSeries) ? $($descriptions).find('span.anime_number').text() : animeSeries,
+                description: animeDescription,
+                img: animeImage
+            })
+        });
+
+        
+        return catalog;
+    }
+
     private findAnimeType(text: string){
         const animeRegex = regexFind(text, new RegExp(`Тип:([^\n]*)`));
         const animeType = animeRegex.split(' ')[0];
@@ -130,13 +161,33 @@ export class WebScrapper implements IScrapperServce{
         } as IAnimeType
     }
 
-    getFullLink(url: WEB_URL, animeLink: string): string {
-        switch(url){
-            case ANILIBRIA_SCHEDULE:
-                return ANILIBRIA_URL + animeLink
-            default:
-                return url
+    private async parseDynamic(url: WEB_URL): Promise<cheerio.CheerioAPI> {
+        const browser = await puppeteer.launch({ headless: true});
+        const page = await browser.newPage();
+
+        try {
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+
+            await page.waitForSelector('.toggle.btn', { visible: true, timeout: 10000 });
+
+            await page.click('.toggle.btn');
+            await page.waitForTimeout(2000);
+            
+            await page.waitForSelector(`.simpleCatalog`, { visible: true });
+            const content = await page.content();
+
+            return cheerio.load(content);
+
+        } catch (error) {
+            console.error('Error occurred:', error);
+        } finally {
+            await browser.close();
         }
+        
+    }
+
+    getFullLink(animeLink: string): string {
+        return ANILIBRIA_URL + animeLink
     }
 
     *generateWeekdays() : Generator<string> {
@@ -145,7 +196,16 @@ export class WebScrapper implements IScrapperServce{
         }
     }
     
-    test(){
-        return '123'
-    }
+    // getLinksByClassName($:cheerio.CheerioAPI, className: string): string[]{
+    //     const links: string[] = [];
+    //     $(`.${className} > table > tbody > tr > td`).find("a").each((_, link) => {
+    //         const url = $(link).attr('href');
+    //         console.log(url)
+    //         if(url !== undefined){
+    //             links.push(url);
+    //         }
+
+    //     });
+    //     return links
+    // }
 }

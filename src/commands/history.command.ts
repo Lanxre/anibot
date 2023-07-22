@@ -1,10 +1,10 @@
 import { Markup, Telegraf } from "telegraf";
 import { Command } from "./commad.class";
 import { IBotContext } from "../context/context.interface";
-import { ANILIBRIA_SCHEDULE } from "../constants/constants";
+import { ANILIBRIA_CATALOG, ANILIBRIA_SCHEDULE } from "../constants/constants";
 import { InlineKeyboardMarkup } from "telegraf/typings/core/types/typegram";
 import { WebScrapper } from "../utils/scrapper";
-import { IAnimeWeekDescription } from "../utils/scrapper.interface";
+import { IAnimeDescription, IAnimeWeekDescription } from "../utils/scrapper.interface";
 import { getTimeDiffString } from "../utils/date.util";
 import path from "path";
 
@@ -59,32 +59,32 @@ export class HistoryCommand extends Command {
     private async showHistory(ctx: IBotContext): Promise<void> {
         
         const scrapper = new WebScrapper();
-        const catalogPage = '' // write method to parse catalog page
+        const catalogPage = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
 
         await ctx.replyWithPhoto({ source: this.getPhotoPath()}, {
-            caption: '123',
+            caption: await this.createCaption(catalogPage),
             parse_mode: 'Markdown',
             ...this.getKeyboard()
         })
 
         this.bot.action('history backward', async (ctx) => {
-            // this.setHistoryState(-1)
-            // const prevDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
-            // this.editCaption(ctx, prevDay);
+            this.setHistoryState(-1)
+            const prevDay = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+            this.editCaption(ctx, prevDay);
         })
 
         this.bot.action('history forward', async (ctx) => {
-            // this.setHistoryState(1)
-            // const nextDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
-            // this.editCaption(ctx, nextDay);
+            this.setHistoryState(1)
+            const nextDay = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+            this.editCaption(ctx, nextDay);
         })
 
         this.bot.action(/history (.*)/, async (ctx) => {
-            // const capturedElement = ctx.match[1];
-            // const matchedElement = shortWeekdays.find((element) => element.toLowerCase() === capturedElement.toLowerCase());
-            // this.dayState.active = matchedElement || this.dayState.active;
-            // const daySelected = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
-            // this.editCaption(ctx, daySelected);
+            const capturedElement = ctx.match[1];
+            const matchedElement = parseInt(capturedElement);
+            this.historyState.active = matchedElement || this.historyState.active;
+            const daySelected = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+            this.editCaption(ctx, daySelected);
         })
 
     }
@@ -92,31 +92,27 @@ export class HistoryCommand extends Command {
         return this.historyState.pathAssets;
     }
 
-    private async editCaption(ctx: IBotContext, animeSeries: IAnimeWeekDescription): Promise<void> {
-        // await ctx.editMessageMedia({ type: 'photo', media: { source: this.getPhotoPath() } });
-        // await ctx.editMessageCaption(await this.createCaption(animeSeries), {parse_mode: 'Markdown', ...this.getKeyboard()});
+    private async editCaption(ctx: IBotContext, animeSeries: IAnimeDescription[]): Promise<void> {
+        await ctx.editMessageCaption(await this.createCaption(animeSeries), {parse_mode: 'Markdown', ...this.getKeyboard()});
     }
 
     private setHistoryState(num: number): void {
-        console.log()
+        this.historyState.active += num;
     }
 
-    private async createCaption(){
+    private async createCaption(animeSeries: IAnimeDescription[]){
 
-        // const promises = animeSeries.scheduleDay.map(async series => {
-        //     const scrapper = new WebScrapper();
-        //     const animeInfo = await scrapper.parseAnimePage(series.link);
-        //     return `*${series.name}*` + '\n' + `${animeInfo.detailType.type == 'ТВ' ? 'Серия' : animeInfo.detailType.type} ${series.series}` + `\` ${getTimeDiffString(animeInfo.date)}\`` + "\n\n";
-        // });   
+        const promises = animeSeries.map(async series => {
+            const scrapper = new WebScrapper();
+            const animeInfo = await scrapper.parseAnimePage(series.link);
+            return `*${series.name}*` + '\n' + `${animeInfo.detailType.type == 'ТВ' ? 'Серия' : animeInfo.detailType.type} ${series.series}` + `\` ${getTimeDiffString(animeInfo.date)}\`` + "\n\n";
+        });   
 
-        // return await Promise.all(promises).then(result => {
-        //     const listAnime = result.join('');
-        //     return `Календарь релизов на ${weekdayGenitive[shortWeekdays.indexOf(this.dayState.active)]} ` +
-        //     `(день ${shortWeekdays.indexOf(this.dayState.active) + 1} из ${shortWeekdays.length}):` + "\n\n"
-        //     + listAnime
-        //     + '\n'
-        //     + '_* Расписание не гарантирует выход серии сегодня, это лишь приблизительное время когда стоит ожидать новую серию._'
+        return await Promise.all(promises).then(result => {
+            const listAnime = result.join('');
+            return `История релизов (стр. ${this.historyState.active} из ${this.countOfPage}): ` + "\n\n"
+            + listAnime
 
-        // })
+        })
     }
 }

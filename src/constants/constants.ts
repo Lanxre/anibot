@@ -1,10 +1,11 @@
 export const ANILIBRIA_URL = "https://www.anilibria.tv/";
 export const ANILIBRIA_SCHEDULE = "https://www.anilibria.tv/pages/schedule.php";
+export const ANILIBRIA_CATALOG = "https://www.anilibria.tv/pages/catalog.php#page-";
 
 export const weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-export const weekdayGenitive = ['Понедельник', 'Вторник', 'Среду', 'Четверг', 'Пятницу', 'Субботу', 'Воскресенье']
+export const weekdayGenitive = ['Понедельник', 'Вторник', 'Среду', 'Четверг', 'Пятницу', 'Субботу', 'Воскресенье'];
 
-export const shortWeekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+export const shortWeekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 type ShortWeekDay = typeof shortWeekdays[number];
 
