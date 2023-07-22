@@ -167,11 +167,11 @@ export class WebScrapper implements IScrapperServce{
 
         try {
             await page.goto(url, { waitUntil: 'domcontentloaded' });
-
-            await page.waitForSelector('.toggle.btn', { visible: true, timeout: 10000 });
-
+            console.log(url)
+            await page.waitForSelector('.toggle.btn', { visible: true });
+            
             await page.click('.toggle.btn');
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(10000);
             
             await page.waitForSelector(`.simpleCatalog`, { visible: true });
             const content = await page.content();
