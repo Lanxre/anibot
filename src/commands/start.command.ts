@@ -19,11 +19,7 @@ export class StartCommand extends Command{
               Markup.keyboard([
                 ["🔎 Найти", "🧰 Смотреть"], ["📩 Настройки уведомления"],
                 ["📆 Расписание", "📖 История "], ["💌 Мои подписки "]
-              ]).resize()
-            //   Markup.inlineKeyboard([
-            //     Markup.button.callback("Расписание", "schedule"),
-            //     Markup.button.callback("Последние вышедшие серии", "last_seiries")
-            //   ])  
+              ]).resize() 
             )
         })
 

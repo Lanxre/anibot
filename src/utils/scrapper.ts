@@ -3,8 +3,11 @@ import * as cheerio from 'cheerio';
 import { IAnimeDescription, IAnimeDetails, IAnimeType, IAnimeWeekDescription, IScrapperServce, WEB_URL } from "./scrapper.interface";
 import { ANILIBRIA_URL, getTodayStrignDay, weekdays } from "../constants/constants";
 import { regexFind } from "./regex.util";
+import { Service } from "typedi";
 import puppeteer from "puppeteer";
 
+
+@Service()
 export class WebScrapper implements IScrapperServce{
 
     getPage(url: WEB_URL): Promise<string | undefined> {
@@ -167,11 +170,9 @@ export class WebScrapper implements IScrapperServce{
 
         try {
             await page.goto(url, { waitUntil: 'domcontentloaded' });
-            console.log(url)
             await page.waitForSelector('.toggle.btn', { visible: true });
             
             await page.click('.toggle.btn');
-            await page.waitForTimeout(10000);
             
             await page.waitForSelector(`.simpleCatalog`, { visible: true });
             const content = await page.content();
@@ -196,16 +197,4 @@ export class WebScrapper implements IScrapperServce{
         }
     }
     
-    // getLinksByClassName($:cheerio.CheerioAPI, className: string): string[]{
-    //     const links: string[] = [];
-    //     $(`.${className} > table > tbody > tr > td`).find("a").each((_, link) => {
-    //         const url = $(link).attr('href');
-    //         console.log(url)
-    //         if(url !== undefined){
-    //             links.push(url);
-    //         }
-
-    //     });
-    //     return links
-    // }
 }

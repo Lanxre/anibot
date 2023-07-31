@@ -3,10 +3,10 @@ import { Command } from "./commad.class";
 import { IBotContext } from "../context/context.interface";
 import { ANILIBRIA_SCHEDULE, getTodayStrignDay, getWeekDayFromShort, shortWeekdays, weekdayGenitive } from "../constants/constants";
 import { InlineKeyboardMarkup } from "telegraf/typings/core/types/typegram";
-import path from "path";
 import { WebScrapper } from "../utils/scrapper";
 import { IAnimeWeekDescription } from "../utils/scrapper.interface";
 import { getTimeDiffString } from "../utils/date.util";
+import path from "path";
 
 export class SheduleCommand extends Command {
 
@@ -15,7 +15,7 @@ export class SheduleCommand extends Command {
         pathAssets: path.join(process.cwd(), 'src', 'assets','schedule')
     }
     
-    constructor(bot: Telegraf<IBotContext>) {
+    constructor(bot: Telegraf<IBotContext>, private scrapper: WebScrapper) {
       super(bot);
     }
   
@@ -52,8 +52,7 @@ export class SheduleCommand extends Command {
       
 
     private async showShelduer(ctx: IBotContext): Promise<void> {
-        const scrapper = new WebScrapper();
-        const scheduleDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
+        const scheduleDay = await this.scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
 
         await ctx.replyWithPhoto({ source: this.getPhotoPath()}, {
             caption: await this.createCaption(scheduleDay),
@@ -62,7 +61,7 @@ export class SheduleCommand extends Command {
         })
         this.bot.action('schedule backward', async (ctx) => {
             this.setDayState(-1)
-            const prevDay = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
+            const prevDay = await this.scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
             this.editCaption(ctx, prevDay);
         })
 
@@ -76,7 +75,7 @@ export class SheduleCommand extends Command {
             const capturedElement = ctx.match[1];
             const matchedElement = shortWeekdays.find((element) => element.toLowerCase() === capturedElement.toLowerCase());
             this.dayState.active = matchedElement || this.dayState.active;
-            const daySelected = await scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
+            const daySelected = await this.scrapper.getScheduleDay(ANILIBRIA_SCHEDULE, getWeekDayFromShort(this.dayState.active));
             this.editCaption(ctx, daySelected);
         })
 
@@ -99,8 +98,7 @@ export class SheduleCommand extends Command {
     private async createCaption(animeSeries: IAnimeWeekDescription) : Promise<string> {
 
         const promises = animeSeries.scheduleDay.map(async series => {
-            const scrapper = new WebScrapper();
-            const animeInfo = await scrapper.parseAnimePage(series.link);
+            const animeInfo = await this.scrapper.parseAnimePage(series.link);
             return `*${series.name}*` + '\n' + `${animeInfo.detailType.type == 'ТВ' ? 'Серия' : animeInfo.detailType.type} ${series.series}` + `\` ${getTimeDiffString(animeInfo.date)}\`` + "\n\n";
         });   
 

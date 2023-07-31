@@ -1,12 +1,13 @@
 import { Markup, Telegraf } from "telegraf";
 import { Command } from "./commad.class";
 import { IBotContext } from "../context/context.interface";
-import { ANILIBRIA_CATALOG, ANILIBRIA_SCHEDULE } from "../constants/constants";
+import { ANILIBRIA_CATALOG } from "../constants/constants";
 import { InlineKeyboardMarkup } from "telegraf/typings/core/types/typegram";
 import { WebScrapper } from "../utils/scrapper";
-import { IAnimeDescription, IAnimeWeekDescription } from "../utils/scrapper.interface";
+import { IAnimeDescription } from "../utils/scrapper.interface";
 import { getTimeDiffString } from "../utils/date.util";
 import path from "path";
+import 'reflect-metadata'
 
 export class HistoryCommand extends Command {
 
@@ -17,7 +18,7 @@ export class HistoryCommand extends Command {
         pathAssets: path.join(process.cwd(), 'src', 'assets','history', '1.jpg')
     };
     
-    constructor(bot: Telegraf<IBotContext>) {
+    constructor(bot: Telegraf<IBotContext>, private scrapper: WebScrapper) {
       super(bot);
     }
   
@@ -58,8 +59,7 @@ export class HistoryCommand extends Command {
 
     private async showHistory(ctx: IBotContext): Promise<void> {
         
-        const scrapper = new WebScrapper();
-        const catalogPage = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+        const catalogPage = await this.scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
 
         await ctx.replyWithPhoto({ source: this.getPhotoPath()}, {
             caption: await this.createCaption(catalogPage),
@@ -69,13 +69,13 @@ export class HistoryCommand extends Command {
 
         this.bot.action('history backward', async (ctx) => {
             this.setHistoryState(-1)
-            const prevDay = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+            const prevDay = await this.scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
             this.editCaption(ctx, prevDay);
         })
 
         this.bot.action('history forward', async (ctx) => {
             this.setHistoryState(1)
-            const nextDay = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+            const nextDay = await this.scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
             this.editCaption(ctx, nextDay);
         })
 
@@ -83,7 +83,7 @@ export class HistoryCommand extends Command {
             const capturedElement = ctx.match[1];
             const matchedElement = parseInt(capturedElement);
             this.historyState.active = matchedElement || this.historyState.active;
-            const daySelected = await scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
+            const daySelected = await this.scrapper.parseCatalog(ANILIBRIA_CATALOG + this.historyState.active);
             this.editCaption(ctx, daySelected);
         })
 
@@ -103,8 +103,7 @@ export class HistoryCommand extends Command {
     private async createCaption(animeSeries: IAnimeDescription[]){
 
         const promises = animeSeries.map(async series => {
-            const scrapper = new WebScrapper();
-            const animeInfo = await scrapper.parseAnimePage(series.link);
+            const animeInfo = await this.scrapper.parseAnimePage(series.link);
             return `*${series.name}*` + '\n' + `${animeInfo.detailType.type == 'ТВ' ? 'Серия' : animeInfo.detailType.type} ${series.series}` + `\` ${getTimeDiffString(animeInfo.date)}\`` + "\n\n";
         });   
 

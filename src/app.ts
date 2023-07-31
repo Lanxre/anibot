@@ -7,10 +7,11 @@ import { Container, Inject, Service } from "typedi";
 import { ConfigService } from "./config/config.service";
 import { botCommands } from "./constants/commands";
 import LocalSession from "telegraf-session-local";
-import 'reflect-metadata';
 import { MenuCommand } from "./commands/menu.command";
+import { WebScrapper } from "./utils/scrapper";
 import { SheduleCommand } from "./commands/schedule.command";
 import { HistoryCommand } from "./commands/history.command";
+import 'reflect-metadata';
 
 
 @Service()
@@ -20,7 +21,9 @@ class Bot{
     commands: Command[] = [];
     constructor(
         @Inject()
-        public configService: ConfigService){
+        public configService: ConfigService,
+        private scrapper: WebScrapper
+        ){
         this.configSerivice = configService;
         this.bot = new Telegraf<IBotContext>(this.configService.get('TOKEN'));
         this.bot.use(
@@ -29,12 +32,11 @@ class Bot{
     }
     
     init(){
-        
         this.commands = [
             new StartCommand(this.bot),
             new MenuCommand(this.bot),
-            new SheduleCommand(this.bot),
-            new HistoryCommand(this.bot)
+            new SheduleCommand(this.bot, this.scrapper),
+            new HistoryCommand(this.bot, this.scrapper)
         ]
         this.setCommands();
         this.registerCommands();
@@ -52,7 +54,6 @@ class Bot{
         }
     }
 }
-
 
 const bot = Container.get(Bot)  
 bot.init();
